@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat con Socket</title>
+</head>
+<body>
+    <style>
+        body{
+            font-family: Arial, Helvetica, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+
+        #chat-container{
+            border: 1px solid gray;
+            padding: 20px;
+            height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            display: none;
+        }
+        #login-container{
+            text-align: center;
+            margin-top: 100px;
+
+        }
+
+        .message{
+            margin: 5px 0;
+            padding: 5px;
+
+            border-radius: 5px;
+        }
+        .system-message{
+            background-color: #f0f0f0;
+            color: grey;
+
+        }
+        .user-message{
+            background-color: #e3f2fd;
+        }
+
+        .my-message{
+            background-color: #e8f5e9;
+            text-align: right;
+        }
+
+        #message-form{
+            display: none;
+        }
+
+        input[type="text"]{
+            width: 70%;
+            padding: 10px;
+            margin-right: 10px;
+        }
+
+        button{
+            padding: 10px 20px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover{
+            background-color: #45a049;
+        }
+    </style>
+
+    <div id="login-container">
+        <h2>Bienvenido al Chat</h2>
+        <input type="text" id="nickname" placeholder="Escribe tu nickname">
+        <button onclick="joinChat()">Unirse al chat</button>
+    </div>
+    <div id="chat-container">
+
+    </div>
+
+    <form action="" id="message-form" autocapitalize="off" onsubmit="sendMessage(event)">
+        <input type="text" id="message" placeholder="Escriba su mensaje">
+        <button type="submit">Enviar</button>
+    </form>
+
+    <script>
+        let ws;
+        let myNickname = "";
+
+        //referecnias como componentes
+        const chatContainer = document.querySelector("#chat-container");
+        const messageForm = document.querySelector("#message-form");
+        const loginContainer = document.querySelector("#login-container");
+        function joinChat(){
+            const nickname = document.querySelector("#nickname").value;
+            if(!nickname){
+                alert("Debes escribir un nickname");
+                return;
+            }
+
+            //enviamos nuestro nickname a la variable global
+            myNickname = nickname;
+
+            //instaciamos el objeto WebSocket
+            //ws = new WebSocket("ws://localhost:8080");
+            ws = new WebSocket("ws://192.168.101.48:8080");
+
+            //abrirmos la conexion
+            ws.onopen = () => {
+                //enviar el nickname al servidor
+                ws.send(JSON.stringify({
+                    type: "login",
+                    nickname: nickname
+                }));
+
+                //cambiamos la interfaz
+                loginContainer.style.display = "none";
+                chatContainer.style.display = "block";
+                messageForm.style.display = "block";
+
+                addMessage(`Te has unico al char como ${nickname}`, 'system-message');
+            };
+
+            ws.onmessage = (event) => {
+                try{
+                    const data = JSON.parse(event.data);
+
+
+                    if(data.type === "message"){
+                        addMessage(`${data.nickname}: ${data.message}`, "user-message");
+                    }
+                    else if(data.type === "system"){
+                        addMessage(data.message, "system-message");
+                    }
+                }
+                catch(error){
+                    addMessage(event.data, "system-message");
+                }
+            };
+
+            ws.onclose = () => {
+                addMessage("Descnectado del servidor", "system-message");
+            };
+
+            ws.onerror = (error) => {
+                addMessage("Error en la conexion" + error.message, "system-message");
+            };
+        }
+        function sendMessage(){
+            event.preventDefault();
+            const messageInput = document.querySelector("#message");
+            const message = messageInput.value.trim();
+
+            if(message){
+                ws.send(JSON.stringify({
+                    type: "message",
+                    message: message
+                }));
+                addMessage(`${myNickname}: ${message}`, "my-message");
+                messageInput.value = '';
+            }
+        }
+        function addMessage(message, className){
+            const messageDiv = document.createElement("div");
+            messageDiv.className = `message ${className}`;
+            messageDiv.textContent = message;
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+    </script>
+
+</body>
+</html>
